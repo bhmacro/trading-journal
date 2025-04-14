@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Journal App</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.0/lightweight-charts.standalone.production.min.js"></script>
+    <!-- Load Lightweight Charts library with defer attribute -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js" defer></script>
     <style>
         :root {
             --primary-color: #2962ff;
@@ -322,6 +323,23 @@
         .attribution a:hover {
             text-decoration: underline;
         }
+        
+        /* Add keyframes for pulse animation */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .loading-message {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 16px;
+            color: var(--text-color);
+            background-color: var(--background-color);
+        }
     </style>
 </head>
 <body>
@@ -379,7 +397,7 @@
                 </select>
             </div>
             <div class="chart-container" id="chart-container">
-                <button class="toggle-markers" id="toggle-markers">Hide Markers</button>
+                <div class="loading-message">Initializing chart...</div>
             </div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-color" style="background-color: #ef5350;"></div> Low Confidence (1)</div>
@@ -399,7 +417,7 @@
         let markersVisible = true;
         let chart = null;
         let candleSeries = null;
-        let markers = [];
+        let lightweightChartsLoaded = false;
         
         // DOM elements
         const journalTextarea = document.getElementById('journal-entry');
@@ -412,7 +430,7 @@
         const clearButton = document.getElementById('clear-entries');
         const entriesContainer = document.getElementById('entries-container');
         const statusMessage = document.getElementById('status-message');
-        const toggleMarkersButton = document.getElementById('toggle-markers');
+        const chartContainer = document.getElementById('chart-container');
         
         // Set default confidence
         document.querySelector(`.confidence-btn[data-level="3"]`).classList.add('selected');
@@ -462,7 +480,17 @@
         
         // Initialize Lightweight Charts
         function initChart() {
-            const chartContainer = document.getElementById('chart-container');
+            // Show loading message
+            chartContainer.innerHTML = '<div class="loading-message">Initializing chart...</div>';
+            
+            // Check if the library is loaded
+            if (typeof LightweightCharts === 'undefined') {
+                console.log('Lightweight Charts library not loaded yet. Waiting...');
+                setTimeout(initChart, 500);
+                return;
+            }
+            
+            lightweightChartsLoaded = true;
             
             // Clear previous chart if any
             if (chart) {
@@ -471,6 +499,17 @@
                 // Remove all marker elements
                 document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
             }
+            
+            // Clear the container
+            chartContainer.innerHTML = '';
+            
+            // Add toggle markers button
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'toggle-markers';
+            toggleBtn.id = 'toggle-markers';
+            toggleBtn.textContent = 'Hide Markers';
+            toggleBtn.addEventListener('click', toggleMarkers);
+            chartContainer.appendChild(toggleBtn);
             
             // Create new chart
             chart = LightweightCharts.createChart(chartContainer, {
@@ -512,21 +551,6 @@
                 wickUpColor: '#26a69a',
                 wickDownColor: '#ef5350',
             });
-            
-            // Resize handler
-            const resizeObserver = new ResizeObserver(entries => {
-                if (entries.length === 0 || entries[0].target !== chartContainer) {
-                    return;
-                }
-                
-                const newRect = entries[0].contentRect;
-                chart.applyOptions({ 
-                    width: newRect.width, 
-                    height: newRect.height 
-                });
-            });
-            
-            resizeObserver.observe(chartContainer);
             
             // Fetch data
             fetchChartData();
@@ -707,6 +731,8 @@
                     // Add highlight to this entry
                     entryElement.classList.add('highlighted');
                     
+                    if (!lightweightChartsLoaded) return;
+                    
                     // Find and highlight the corresponding marker
                     const marker = document.querySelector(`.marker[data-id="${entry.id}"]`);
                     if (marker) {
@@ -717,8 +743,10 @@
                         }, 10);
                         
                         // Move chart to show the marker
-                        const chartTime = Math.floor(entry.time / 1000);
-                        chart.timeScale().scrollToPosition(chartTime, 0.5);
+                        if (chart && chart.timeScale) {
+                            const chartTime = Math.floor(entry.time / 1000);
+                            chart.timeScale().scrollToPosition(chartTime, 0.5);
+                        }
                     }
                 });
                 
@@ -728,14 +756,14 @@
         
         // Update chart markers
         function updateChartMarkers() {
+            // Skip if chart not loaded or initialized
+            if (!lightweightChartsLoaded || !chart || !candleSeries) return;
+            
             // Remove existing markers
             document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
             
             // Skip if markers are hidden
             if (!markersVisible) return;
-            
-            // Skip if chart not ready
-            if (!chart || !candleSeries) return;
             
             // Add markers for each entry
             journalEntries.forEach(entry => {
@@ -762,11 +790,7 @@
                 marker.textContent = entry.confidence;
                 
                 // Position marker
-                const chartContainer = document.getElementById('chart-container');
                 marker.style.left = `${coordinate}px`;
-                
-                // Try to get price at this time
-                // For this demo, we'll just place it at the bottom of the chart
                 marker.style.bottom = '30px';
                 
                 // Create tooltip
@@ -813,12 +837,13 @@
         function toggleMarkers() {
             markersVisible = !markersVisible;
             
+            const toggleBtn = document.getElementById('toggle-markers');
             if (markersVisible) {
                 updateChartMarkers();
-                toggleMarkersButton.textContent = "Hide Markers";
+                toggleBtn.textContent = "Hide Markers";
             } else {
                 document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
-                toggleMarkersButton.textContent = "Show Markers";
+                toggleBtn.textContent = "Show Markers";
             }
         }
         
@@ -910,32 +935,23 @@
         exportButton.addEventListener('click', exportToJson);
         importButton.addEventListener('click', importFromJson);
         clearButton.addEventListener('click', clearEntries);
-        toggleMarkersButton.addEventListener('click', toggleMarkers);
         
         // Update chart when symbol or timeframe changes
         symbolInput.addEventListener('change', () => {
-            initChart();
+            if (lightweightChartsLoaded) {
+                initChart();
+            }
         });
         
         timeframeSelect.addEventListener('change', () => {
-            initChart();
-        });
-        
-        // Add keyframes for pulse animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.5); opacity: 0.7; }
-                100% { transform: scale(1); opacity: 1; }
+            if (lightweightChartsLoaded) {
+                initChart();
             }
-        `;
-        document.head.appendChild(style);
+        });
         
         // Handle window resize
         window.addEventListener('resize', () => {
-            if (chart) {
-                const chartContainer = document.getElementById('chart-container');
+            if (lightweightChartsLoaded && chart) {
                 chart.applyOptions({
                     width: chartContainer.clientWidth,
                     height: chartContainer.clientHeight
@@ -946,32 +962,30 @@
             }
         });
         
-        // Initialize chart when document is loaded
+        // Wait for the Lightweight Charts library to load
+        function checkLibraryLoaded() {
+            if (typeof LightweightCharts !== 'undefined') {
+                lightweightChartsLoaded = true;
+                initChart();
+            } else {
+                console.log('Waiting for Lightweight Charts to load...');
+                setTimeout(checkLibraryLoaded, 100);
+            }
+        }
+        
+        // Initialize the app
         document.addEventListener('DOMContentLoaded', () => {
-            initChart();
+            // Initialize UI first
             renderEntries();
             
-            // Add TradingView attribution as required by their license
-            const attributionLink = document.createElement('a');
-            attributionLink.href = 'https://www.tradingview.com/';
-            attributionLink.target = '_blank';
-            attributionLink.textContent = 'TradingView';
-            
-            const attribution = document.createElement('div');
-            attribution.className = 'attribution';
-            attribution.textContent = 'Powered by ';
-            attribution.appendChild(attributionLink);
-            attribution.appendChild(document.createTextNode(' Lightweight Charts'));
-            
-            document.querySelector('.chart-container').appendChild(attribution);
+            // Then try to load the chart
+            checkLibraryLoaded();
         });
         
         // Initialize immediately if document is already loaded
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            setTimeout(() => {
-                initChart();
-                renderEntries();
-            }, 1);
+            renderEntries();
+            setTimeout(checkLibraryLoaded, 100);
         }
     </script>
 </body>
