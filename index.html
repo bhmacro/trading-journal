@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Journal App</title>
-    <!-- Load Lightweight Charts library directly, don't use defer -->
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Load Lightweight Charts library with correct version -->
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
             --primary-color: #2962ff;
@@ -564,7 +564,7 @@
                     width: chartContainer.clientWidth || 800,
                     height: chartContainer.clientHeight || 400,
                     layout: {
-                        background: { color: '#1E222D' },
+                        backgroundColor: '#1E222D',
                         textColor: '#d1d4dc',
                     },
                     grid: {
@@ -581,14 +581,6 @@
                         borderColor: '#485c7b',
                         timeVisible: true,
                     },
-                    watermark: {
-                        visible: true,
-                        fontSize: 48,
-                        horzAlign: 'center',
-                        vertAlign: 'center',
-                        color: 'rgba(171, 71, 188, 0.05)',
-                        text: symbolInput.value,
-                    }
                 });
                 
                 log('Chart created, adding series');
@@ -1104,7 +1096,7 @@
                 
                 // Try to load the library
                 const script = document.createElement('script');
-                script.src = 'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js';
+                script.src = 'https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js';
                 script.onload = () => {
                     log('LightweightCharts library loaded successfully');
                     lightweightChartsLoaded = true;
