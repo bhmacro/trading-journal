@@ -261,6 +261,11 @@
                 <label for="chart-symbol">Chart Symbol</label>
                 <input type="text" id="chart-symbol" value="ES" placeholder="Enter symbol (ES, NQ, etc.)">
             </div>
+            <div class="input-group">
+                <label for="custom-timestamp">Custom Timestamp (for testing)</label>
+                <input type="datetime-local" id="custom-timestamp">
+                <small style="color: #888; display: block; margin-top: 5px;">Leave empty to use current time</small>
+            </div>
             <div class="actions">
                 <button id="save-entry">Save Entry</button>
                 <button id="export-json" class="export-btn">Save Backup</button>
@@ -345,21 +350,36 @@
                 return;
             }
             
-            const now = new Date();
-            const timestamp = formatDate(now);
+            // Get timestamp (use custom if provided, otherwise current time)
+            const customTimestampInput = document.getElementById('custom-timestamp');
+            let timestamp;
+            let entryId;
+            
+            if (customTimestampInput.value) {
+                // Use custom timestamp
+                const customDate = new Date(customTimestampInput.value);
+                timestamp = formatDate(customDate);
+                entryId = customDate.getTime();
+            } else {
+                // Use current time
+                const now = new Date();
+                timestamp = formatDate(now);
+                entryId = now.getTime();
+            }
             
             const entry = {
                 content,
                 confidence: selectedConfidence,
                 timestamp,
                 symbol: symbolInput.value || 'ES',
-                id: now.getTime() // Unique ID for the entry
+                id: entryId
             };
             
             journalEntries.unshift(entry); // Add to the beginning of the array
             renderEntries();
+            updateBasicChart(); // Update chart markers if using basic chart
             
-            // Clear the textarea
+            // Clear the textarea but keep the timestamp for convenience in testing
             journalTextarea.value = '';
             showStatus('Entry saved successfully');
         }
@@ -394,7 +414,16 @@
                 return;
             }
             
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(journalEntries));
+            // Sort entries by timestamp before exporting
+            // This ensures a chronological order regardless of entry method
+            const sortedEntries = [...journalEntries].sort((a, b) => {
+                // Convert timestamp strings to Date objects for comparison
+                const dateA = new Date(a.timestamp.replace(/-/g, '/'));
+                const dateB = new Date(b.timestamp.replace(/-/g, '/'));
+                return dateA - dateB; // Ascending order (oldest first)
+            });
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sortedEntries));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
             downloadAnchorNode.setAttribute("download", `trading-journal-backup-${formatDate(new Date()).replace(/[: ]/g, '-')}.json`);
