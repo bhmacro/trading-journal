@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Journal App</title>
-    <!-- Load Lightweight Charts library with defer attribute -->
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js" defer></script>
+    <!-- Load Lightweight Charts library directly, don't use defer -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
             --primary-color: #2962ff;
@@ -340,6 +340,18 @@
             color: var(--text-color);
             background-color: var(--background-color);
         }
+        
+        .debug-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -389,8 +401,8 @@
                 <label for="timeframe">Timeframe</label>
                 <select id="timeframe">
                     <option value="1">1 Minute</option>
-                    <option value="5">5 Minutes</option>
-                    <option value="15" selected>15 Minutes</option>
+                    <option value="5" selected>5 Minutes</option>
+                    <option value="15">15 Minutes</option>
                     <option value="30">30 Minutes</option>
                     <option value="60">1 Hour</option>
                     <option value="D">1 Day</option>
@@ -399,6 +411,7 @@
             <div class="chart-container" id="chart-container">
                 <div class="loading-message">Initializing chart...</div>
             </div>
+            <div id="debug-info" class="debug-info">Library Status: Checking...</div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-color" style="background-color: #ef5350;"></div> Low Confidence (1)</div>
                 <div class="legend-item"><div class="legend-color" style="background-color: #4caf50;"></div> Medium Confidence (3)</div>
@@ -431,6 +444,15 @@
         const entriesContainer = document.getElementById('entries-container');
         const statusMessage = document.getElementById('status-message');
         const chartContainer = document.getElementById('chart-container');
+        const debugInfo = document.getElementById('debug-info');
+        
+        // Debug log function
+        function log(message) {
+            const timestamp = new Date().toISOString().slice(11, 19);
+            debugInfo.textContent += `\n[${timestamp}] ${message}`;
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+            console.log(message);
+        }
         
         // Set default confidence
         document.querySelector(`.confidence-btn[data-level="3"]`).classList.add('selected');
@@ -460,6 +482,9 @@
             statusMessage.style.backgroundColor = isError ? 'rgba(239, 83, 80, 0.2)' : 'rgba(38, 166, 154, 0.2)';
             statusMessage.style.display = 'block';
             
+            // Log status messages
+            log(isError ? `ERROR: ${message}` : `STATUS: ${message}`);
+            
             // Hide after 3 seconds
             setTimeout(() => {
                 statusMessage.style.display = 'none';
@@ -478,82 +503,125 @@
             return colors[level] || '#888';
         }
         
+        // Check if library is loaded
+        function checkLibraryLoaded() {
+            try {
+                if (typeof LightweightCharts !== 'undefined') {
+                    log(`Library loaded: ${typeof LightweightCharts}`);
+                    return true;
+                } else {
+                    log('Library not yet loaded');
+                    return false;
+                }
+            } catch (e) {
+                log(`Error checking library: ${e.message}`);
+                return false;
+            }
+        }
+        
         // Initialize Lightweight Charts
         function initChart() {
+            log('Initializing chart...');
+            
             // Show loading message
             chartContainer.innerHTML = '<div class="loading-message">Initializing chart...</div>';
             
             // Check if the library is loaded
-            if (typeof LightweightCharts === 'undefined') {
-                console.log('Lightweight Charts library not loaded yet. Waiting...');
-                setTimeout(initChart, 500);
+            if (!checkLibraryLoaded()) {
+                log('Library not loaded, waiting...');
+                setTimeout(initChart, 1000); // Try again in 1 second
                 return;
             }
             
+            log('Library is loaded, creating chart');
             lightweightChartsLoaded = true;
             
-            // Clear previous chart if any
-            if (chart) {
-                chart.remove();
-                
-                // Remove all marker elements
-                document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
-            }
-            
-            // Clear the container
-            chartContainer.innerHTML = '';
-            
-            // Add toggle markers button
-            const toggleBtn = document.createElement('button');
-            toggleBtn.className = 'toggle-markers';
-            toggleBtn.id = 'toggle-markers';
-            toggleBtn.textContent = 'Hide Markers';
-            toggleBtn.addEventListener('click', toggleMarkers);
-            chartContainer.appendChild(toggleBtn);
-            
-            // Create new chart
-            chart = LightweightCharts.createChart(chartContainer, {
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
-                layout: {
-                    background: { color: '#1E222D' },
-                    textColor: '#d1d4dc',
-                },
-                grid: {
-                    vertLines: { color: '#2B2B43' },
-                    horzLines: { color: '#363C4E' },
-                },
-                crosshair: {
-                    mode: LightweightCharts.CrosshairMode.Normal,
-                },
-                priceScale: {
-                    borderColor: '#485c7b',
-                },
-                timeScale: {
-                    borderColor: '#485c7b',
-                    timeVisible: true,
-                },
-                watermark: {
-                    visible: true,
-                    fontSize: 48,
-                    horzAlign: 'center',
-                    vertAlign: 'center',
-                    color: 'rgba(171, 71, 188, 0.05)',
-                    text: symbolInput.value,
+            try {
+                // Clear previous chart if any
+                if (chart) {
+                    log('Removing previous chart');
+                    chart.remove();
+                    
+                    // Remove all marker elements
+                    document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
                 }
-            });
-            
-            // Add candlestick series
-            candleSeries = chart.addCandlestickSeries({
-                upColor: '#26a69a',
-                downColor: '#ef5350',
-                borderVisible: false,
-                wickUpColor: '#26a69a',
-                wickDownColor: '#ef5350',
-            });
-            
-            // Fetch data
-            fetchChartData();
+                
+                // Clear the container
+                chartContainer.innerHTML = '';
+                
+                // Add toggle markers button
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'toggle-markers';
+                toggleBtn.id = 'toggle-markers';
+                toggleBtn.textContent = 'Hide Markers';
+                toggleBtn.addEventListener('click', toggleMarkers);
+                chartContainer.appendChild(toggleBtn);
+                
+                log(`Creating chart in container: ${chartContainer.id}, size: ${chartContainer.clientWidth}x${chartContainer.clientHeight}`);
+                
+                // Create chart with explicit dimensions
+                chart = LightweightCharts.createChart(chartContainer, {
+                    width: chartContainer.clientWidth || 800,
+                    height: chartContainer.clientHeight || 400,
+                    layout: {
+                        background: { color: '#1E222D' },
+                        textColor: '#d1d4dc',
+                    },
+                    grid: {
+                        vertLines: { color: '#2B2B43' },
+                        horzLines: { color: '#363C4E' },
+                    },
+                    crosshair: {
+                        mode: LightweightCharts.CrosshairMode.Normal,
+                    },
+                    priceScale: {
+                        borderColor: '#485c7b',
+                    },
+                    timeScale: {
+                        borderColor: '#485c7b',
+                        timeVisible: true,
+                    },
+                    watermark: {
+                        visible: true,
+                        fontSize: 48,
+                        horzAlign: 'center',
+                        vertAlign: 'center',
+                        color: 'rgba(171, 71, 188, 0.05)',
+                        text: symbolInput.value,
+                    }
+                });
+                
+                log('Chart created, adding series');
+                
+                // Add candlestick series
+                candleSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                    wickUpColor: '#26a69a',
+                    wickDownColor: '#ef5350',
+                });
+                
+                log('Series added, fetching data');
+                
+                // Fetch data
+                fetchChartData();
+                
+            } catch (error) {
+                log(`ERROR creating chart: ${error.message}`);
+                console.error('Error initializing chart:', error);
+                showStatus('Error initializing chart: ' + error.message, true);
+                
+                // Show error in chart container
+                chartContainer.innerHTML = `
+                    <div class="loading-message">
+                        Error initializing chart: ${error.message}<br><br>
+                        <button id="retry-chart">Retry</button>
+                    </div>
+                `;
+                
+                document.getElementById('retry-chart').addEventListener('click', initChart);
+            }
         }
         
         // Mock data generation (replace with actual API call)
@@ -588,6 +656,8 @@
             } else {
                 intervalMinutes = parseInt(timeframe);
             }
+            
+            log(`Generating mock data: ${symbol}, ${timeframe}, ${days} days`);
             
             // Generate data
             for (let i = 0; i < days * 1440 / intervalMinutes; i++) {
@@ -627,15 +697,18 @@
             }
             
             // Reverse to get ascending order
+            log(`Generated ${data.length} data points`);
             return data.reverse();
         }
         
         // Fetch chart data
         async function fetchChartData() {
             const symbol = symbolInput.value || 'SPY';
-            const timeframe = timeframeSelect.value || '15';
+            const timeframe = timeframeSelect.value || '5';
             
             try {
+                log(`Fetching chart data for ${symbol}, timeframe: ${timeframe}`);
+                
                 // For a real app, you would fetch data from an API
                 // For this demo, we'll use mock data
                 const data = generateMockData(symbol, timeframe);
@@ -644,18 +717,23 @@
                     throw new Error('No data available');
                 }
                 
+                log(`Setting ${data.length} data points to chart`);
+                
                 // Set the data to the chart
                 candleSeries.setData(data);
                 
                 // Fit the chart to show all data
                 chart.timeScale().fitContent();
                 
+                log('Chart data set successfully');
+                
                 // Add markers
                 updateChartMarkers();
                 
             } catch (error) {
+                log(`ERROR fetching chart data: ${error.message}`);
                 console.error('Error fetching chart data:', error);
-                showStatus('Error loading chart data', true);
+                showStatus('Error loading chart data: ' + error.message, true);
             }
         }
         
@@ -691,6 +769,8 @@
                 id: entryTime.getTime()
             };
             
+            log(`Creating entry: ${entry.timestamp}, conf: ${entry.confidence}`);
+            
             journalEntries.unshift(entry); // Add to the beginning of the array
             renderEntries();
             updateChartMarkers();
@@ -708,6 +788,8 @@
                 entriesContainer.innerHTML = '<p>No entries yet. Create your first entry!</p>';
                 return;
             }
+            
+            log(`Rendering ${journalEntries.length} entries`);
             
             journalEntries.forEach(entry => {
                 const entryElement = document.createElement('div');
@@ -731,11 +813,17 @@
                     // Add highlight to this entry
                     entryElement.classList.add('highlighted');
                     
-                    if (!lightweightChartsLoaded) return;
+                    log(`Entry clicked: ${entry.id}`);
+                    
+                    if (!lightweightChartsLoaded || !chart) {
+                        log('Chart not ready, cannot highlight marker');
+                        return;
+                    }
                     
                     // Find and highlight the corresponding marker
                     const marker = document.querySelector(`.marker[data-id="${entry.id}"]`);
                     if (marker) {
+                        log('Marker found, highlighting');
                         // Flash the marker
                         marker.style.animation = 'none';
                         setTimeout(() => {
@@ -743,10 +831,14 @@
                         }, 10);
                         
                         // Move chart to show the marker
-                        if (chart && chart.timeScale) {
+                        try {
                             const chartTime = Math.floor(entry.time / 1000);
                             chart.timeScale().scrollToPosition(chartTime, 0.5);
+                        } catch (error) {
+                            log(`ERROR scrolling: ${error.message}`);
                         }
+                    } else {
+                        log('Marker not found for this entry');
                     }
                 });
                 
@@ -757,13 +849,23 @@
         // Update chart markers
         function updateChartMarkers() {
             // Skip if chart not loaded or initialized
-            if (!lightweightChartsLoaded || !chart || !candleSeries) return;
+            if (!lightweightChartsLoaded || !chart) {
+                log('Chart not ready, cannot update markers');
+                return;
+            }
             
             // Remove existing markers
             document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
             
             // Skip if markers are hidden
-            if (!markersVisible) return;
+            if (!markersVisible) {
+                log('Markers are hidden, not updating');
+                return;
+            }
+            
+            log(`Updating markers for ${journalEntries.length} entries`);
+            
+            let markersAdded = 0;
             
             // Add markers for each entry
             journalEntries.forEach(entry => {
@@ -771,66 +873,82 @@
                 const currentSymbol = symbolInput.value || 'SPY';
                 
                 // Skip if entry is for a different symbol
-                if (entrySymbol.toUpperCase() !== currentSymbol.toUpperCase()) return;
+                if (entrySymbol.toUpperCase() !== currentSymbol.toUpperCase()) {
+                    return;
+                }
                 
                 // Convert timestamp to chart time
                 const chartTime = Math.floor(entry.time / 1000);
                 
-                // Try to get the coordinate from the chart
-                const coordinate = chart.timeScale().timeToCoordinate(chartTime);
-                
-                // Skip if time is outside the visible range
-                if (coordinate === null) return;
-                
-                // Create marker
-                const marker = document.createElement('div');
-                marker.className = 'marker';
-                marker.style.backgroundColor = getConfidenceColor(entry.confidence);
-                marker.dataset.id = entry.id;
-                marker.textContent = entry.confidence;
-                
-                // Position marker
-                marker.style.left = `${coordinate}px`;
-                marker.style.bottom = '30px';
-                
-                // Create tooltip
-                const tooltip = document.createElement('div');
-                tooltip.className = 'marker-tooltip';
-                tooltip.innerHTML = `
-                    <strong>${entry.timestamp}</strong><br>
-                    <span style="color: ${getConfidenceColor(entry.confidence)}">Confidence: ${entry.confidence}/5</span>
-                    <p>${entry.content}</p>
-                `;
-                tooltip.dataset.id = entry.id;
-                
-                // Add event listeners
-                marker.addEventListener('mouseover', () => {
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = `${coordinate > chartContainer.clientWidth / 2 ? coordinate - 310 : coordinate + 20}px`;
-                    tooltip.style.bottom = '50px';
-                });
-                
-                marker.addEventListener('mouseout', () => {
-                    tooltip.style.display = 'none';
-                });
-                
-                marker.addEventListener('click', () => {
-                    // Highlight corresponding entry
-                    document.querySelectorAll('.journal-entry').forEach(el => {
-                        el.classList.remove('highlighted');
+                try {
+                    // Try to get the coordinate from the chart
+                    const coordinate = chart.timeScale().timeToCoordinate(chartTime);
+                    
+                    // Skip if time is outside the visible range
+                    if (coordinate === null) {
+                        log(`Marker for entry ${entry.id} outside visible range`);
+                        return;
+                    }
+                    
+                    log(`Adding marker at ${coordinate}px for entry ${entry.id}`);
+                    
+                    // Create marker
+                    const marker = document.createElement('div');
+                    marker.className = 'marker';
+                    marker.style.backgroundColor = getConfidenceColor(entry.confidence);
+                    marker.dataset.id = entry.id;
+                    marker.textContent = entry.confidence;
+                    
+                    // Position marker
+                    marker.style.left = `${coordinate}px`;
+                    marker.style.bottom = '30px';
+                    
+                    // Create tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'marker-tooltip';
+                    tooltip.innerHTML = `
+                        <strong>${entry.timestamp}</strong><br>
+                        <span style="color: ${getConfidenceColor(entry.confidence)}">Confidence: ${entry.confidence}/5</span>
+                        <p>${entry.content}</p>
+                    `;
+                    tooltip.dataset.id = entry.id;
+                    
+                    // Add event listeners
+                    marker.addEventListener('mouseover', () => {
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = `${coordinate > chartContainer.clientWidth / 2 ? coordinate - 310 : coordinate + 20}px`;
+                        tooltip.style.bottom = '50px';
                     });
                     
-                    const entryElement = document.querySelector(`.journal-entry[data-id="${entry.id}"]`);
-                    if (entryElement) {
-                        entryElement.classList.add('highlighted');
-                        entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                });
-                
-                // Add marker and tooltip to chart container
-                chartContainer.appendChild(marker);
-                chartContainer.appendChild(tooltip);
+                    marker.addEventListener('mouseout', () => {
+                        tooltip.style.display = 'none';
+                    });
+                    
+                    marker.addEventListener('click', () => {
+                        log(`Marker clicked: ${entry.id}`);
+                        // Highlight corresponding entry
+                        document.querySelectorAll('.journal-entry').forEach(el => {
+                            el.classList.remove('highlighted');
+                        });
+                        
+                        const entryElement = document.querySelector(`.journal-entry[data-id="${entry.id}"]`);
+                        if (entryElement) {
+                            entryElement.classList.add('highlighted');
+                            entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    });
+                    
+                    // Add marker and tooltip to chart container
+                    chartContainer.appendChild(marker);
+                    chartContainer.appendChild(tooltip);
+                    
+                    markersAdded++;
+                } catch (error) {
+                    log(`ERROR creating marker: ${error.message}`);
+                }
             });
+            
+            log(`Added ${markersAdded} markers to chart`);
         }
         
         // Toggle markers visibility
@@ -841,9 +959,11 @@
             if (markersVisible) {
                 updateChartMarkers();
                 toggleBtn.textContent = "Hide Markers";
+                log('Markers shown');
             } else {
                 document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
                 toggleBtn.textContent = "Show Markers";
+                log('Markers hidden');
             }
         }
         
@@ -889,12 +1009,13 @@
                             renderEntries();
                             updateChartMarkers();
                             showStatus(`Successfully imported ${importedEntries.length} entries`);
+                            log(`Imported ${importedEntries.length} entries`);
                         } else {
                             throw new Error('Invalid format');
                         }
                     } catch (error) {
                         showStatus('Error importing file. Please make sure it\'s a valid journal export.', true);
-                        console.error(error);
+                        log(`ERROR importing: ${error.message}`);
                     }
                 };
                 
@@ -911,6 +1032,7 @@
                 renderEntries();
                 updateChartMarkers();
                 showStatus('All entries cleared');
+                log('All entries cleared');
             }
         }
         
@@ -938,12 +1060,14 @@
         
         // Update chart when symbol or timeframe changes
         symbolInput.addEventListener('change', () => {
+            log(`Symbol changed to: ${symbolInput.value}`);
             if (lightweightChartsLoaded) {
                 initChart();
             }
         });
         
         timeframeSelect.addEventListener('change', () => {
+            log(`Timeframe changed to: ${timeframeSelect.value}`);
             if (lightweightChartsLoaded) {
                 initChart();
             }
@@ -952,41 +1076,75 @@
         // Handle window resize
         window.addEventListener('resize', () => {
             if (lightweightChartsLoaded && chart) {
+                log(`Window resized, updating chart: ${chartContainer.clientWidth}x${chartContainer.clientHeight}`);
                 chart.applyOptions({
                     width: chartContainer.clientWidth,
                     height: chartContainer.clientHeight
                 });
                 
-                // Update marker positions
-                updateChartMarkers();
+                // Update marker positions after resize
+                setTimeout(updateChartMarkers, 100);
             }
         });
         
-        // Wait for the Lightweight Charts library to load
-        function checkLibraryLoaded() {
-            if (typeof LightweightCharts !== 'undefined') {
-                lightweightChartsLoaded = true;
-                initChart();
-            } else {
-                console.log('Waiting for Lightweight Charts to load...');
-                setTimeout(checkLibraryLoaded, 100);
-            }
-        }
-        
-        // Initialize the app
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize UI first
-            renderEntries();
+        // Main initialization
+        function initializeApp() {
+            log('Initializing app...');
             
-            // Then try to load the chart
-            checkLibraryLoaded();
-        });
-        
-        // Initialize immediately if document is already loaded
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            // Check if we can access the LightweightCharts library
+            if (typeof LightweightCharts !== 'undefined') {
+                log('LightweightCharts library detected on page load');
+                lightweightChartsLoaded = true;
+                
+                // Initialize chart
+                initChart();
+                
+            } else {
+                log('LightweightCharts library not found on load, adding script tag');
+                
+                // Try to load the library
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js';
+                script.onload = () => {
+                    log('LightweightCharts library loaded successfully');
+                    lightweightChartsLoaded = true;
+                    initChart();
+                };
+                script.onerror = (e) => {
+                    log(`ERROR loading library: ${e.type}`);
+                    showStatus('Failed to load chart library. Please check your internet connection.', true);
+                    
+                    // Show error in chart container
+                    chartContainer.innerHTML = `
+                        <div class="loading-message">
+                            Failed to load chart library.<br>
+                            Please check your internet connection.<br><br>
+                            <button id="retry-load">Retry</button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('retry-load').addEventListener('click', () => {
+                        log('Retrying library load');
+                        document.head.appendChild(script);
+                    });
+                };
+                
+                document.head.appendChild(script);
+            }
+            
+            // Initialize entries display
             renderEntries();
-            setTimeout(checkLibraryLoaded, 100);
         }
+        
+        // Start the app when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+        
+        // Log initial status
+        log(`App initialized. Library status: ${typeof LightweightCharts !== 'undefined' ? 'Available' : 'Not loaded'}`);
     </script>
 </body>
 </html>
