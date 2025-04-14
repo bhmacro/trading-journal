@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Journal App</title>
+    <style>
+        :root {
+            --primary-color: #2962ff;
+            --secondary-color: #0039cb;
+            --background-color: #1e222d;
+            --card-color: #2a2e39;
+            --text-color: #d1d4dc;
+            --border-color: #363c4e;
+            --success-color: #26a69a;
+            --warning-color: #ff9800;
+            --danger-color: #ef5350;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-gap: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .card {
+            background-color: var(--card-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1, h2, h3 {
+            margin-bottom: 15px;
+            color: var(--text-color);
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        textarea, input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 16px;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 5px;
+        }
+        
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .confidence-selector {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .confidence-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            background-color: var(--background-color);
+        }
+        
+        .confidence-btn.selected {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .confidence-btn[data-level="1"].selected {
+            background-color: var(--danger-color);
+        }
+        
+        .confidence-btn[data-level="2"].selected {
+            background-color: var(--warning-color);
+        }
+        
+        .confidence-btn[data-level="3"].selected {
+            background-color: #4caf50;
+        }
+        
+        .confidence-btn[data-level="4"].selected {
+            background-color: #2196f3;
+        }
+        
+        .confidence-btn[data-level="5"].selected {
+            background-color: var(--success-color);
+        }
+        
+        #entries-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .journal-entry {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+            background-color: rgba(42, 46, 57, 0.7);
+        }
+        
+        .journal-entry.level-1 {
+            border-left-color: var(--danger-color);
+        }
+        
+        .journal-entry.level-2 {
+            border-left-color: var(--warning-color);
+        }
+        
+        .journal-entry.level-3 {
+            border-left-color: #4caf50;
+        }
+        
+        .journal-entry.level-4 {
+            border-left-color: #2196f3;
+        }
+        
+        .journal-entry.level-5 {
+            border-left-color: var(--success-color);
+        }
+        
+        .entry-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #888;
+        }
+        
+        .entry-timestamp {
+            font-weight: bold;
+        }
+        
+        .entry-confidence {
+            font-weight: bold;
+        }
+        
+        .entry-content {
+            white-space: pre-wrap;
+        }
+        
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .export-btn {
+            background-color: var(--success-color);
+        }
+        
+        .import-btn {
+            background-color: #3f51b5;
+        }
+        
+        .danger-btn {
+            background-color: var(--danger-color);
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .status-message {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            background-color: rgba(0,0,0,0.2);
+            display: none;
+        }
+        
+        .status-message.show {
+            display: block;
+        }
+        
+        #status-message {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            text-align: center;
+            background-color: rgba(0,0,0,0.2);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Trading Journal</h2>
+            <div class="input-group">
+                <label for="journal-entry">Journal Entry</label>
+                <textarea id="journal-entry" placeholder="Write your trading thoughts here..."></textarea>
+            </div>
+            <div class="input-group">
+                <label>Confidence Level (1: Low, 5: High)</label>
+                <div class="confidence-selector">
+                    <div class="confidence-btn" data-level="1">1</div>
+                    <div class="confidence-btn" data-level="2">2</div>
+                    <div class="confidence-btn" data-level="3">3</div>
+                    <div class="confidence-btn" data-level="4">4</div>
+                    <div class="confidence-btn" data-level="5">5</div>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="chart-symbol">Chart Symbol</label>
+                <input type="text" id="chart-symbol" value="ES" placeholder="Enter symbol (ES, NQ, etc.)">
+            </div>
+            <div class="actions">
+                <button id="save-entry">Save Entry</button>
+                <button id="export-json" class="export-btn">Save Backup</button>
+                <button id="import-json" class="import-btn">Import Backup</button>
+                <button id="clear-entries" class="danger-btn">Clear All</button>
+            </div>
+            <div id="status-message"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Recent Entries</h2>
+            <div id="entries-container"></div>
+        </div>
+        
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>Chart</h2>
+            <div class="input-group">
+                <label for="timeframe">Timeframe</label>
+                <select id="timeframe">
+                    <option value="1">1 Minute</option>
+                    <option value="5">5 Minutes</option>
+                    <option value="15" selected>15 Minutes</option>
+                    <option value="30">30 Minutes</option>
+                    <option value="60">1 Hour</option>
+                    <option value="D">1 Day</option>
+                </select>
+            </div>
+            <div class="chart-container" id="tradingview-chart"></div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // State variables
+        let journalEntries = [];
+        let selectedConfidence = 3; // Default confidence level
+        
+        // DOM elements
+        const journalTextarea = document.getElementById('journal-entry');
+        const confidenceButtons = document.querySelectorAll('.confidence-btn');
+        const symbolInput = document.getElementById('chart-symbol');
+        const timeframeSelect = document.getElementById('timeframe');
+        const saveButton = document.getElementById('save-entry');
+        const exportButton = document.getElementById('export-json');
+        const importButton = document.getElementById('import-json');
+        const clearButton = document.getElementById('clear-entries');
+        const entriesContainer = document.getElementById('entries-container');
+        const statusMessage = document.getElementById('status-message');
+        
+        // Set default confidence
+        document.querySelector(`.confidence-btn[data-level="3"]`).classList.add('selected');
+        
+        // Helper function to format dates
+        function formatDate(date) {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            const seconds = String(d.getSeconds()).padStart(2, '0');
+            
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+        
+        // Show status message
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.style.backgroundColor = isError ? 'rgba(239, 83, 80, 0.2)' : 'rgba(38, 166, 154, 0.2)';
+            statusMessage.style.display = 'block';
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Create a journal entry
+        function createEntry() {
+            const content = journalTextarea.value.trim();
+            if (!content) {
+                showStatus('Please enter some text for your journal entry', true);
+                return;
+            }
+            
+            const now = new Date();
+            const timestamp = formatDate(now);
+            
+            const entry = {
+                content,
+                confidence: selectedConfidence,
+                timestamp,
+                symbol: symbolInput.value || 'ES',
+                id: now.getTime() // Unique ID for the entry
+            };
+            
+            journalEntries.unshift(entry); // Add to the beginning of the array
+            renderEntries();
+            
+            // Clear the textarea
+            journalTextarea.value = '';
+            showStatus('Entry saved successfully');
+        }
+        
+        // Render entries in the UI
+        function renderEntries() {
+            entriesContainer.innerHTML = '';
+            
+            if (journalEntries.length === 0) {
+                entriesContainer.innerHTML = '<p>No entries yet. Create your first entry!</p>';
+                return;
+            }
+            
+            journalEntries.forEach(entry => {
+                const entryElement = document.createElement('div');
+                entryElement.className = `journal-entry level-${entry.confidence}`;
+                entryElement.innerHTML = `
+                    <div class="entry-header">
+                        <span class="entry-timestamp">${entry.timestamp}</span>
+                        <span class="entry-confidence">Confidence: ${entry.confidence}/5</span>
+                    </div>
+                    <div class="entry-content">${entry.content}</div>
+                `;
+                entriesContainer.appendChild(entryElement);
+            });
+        }
+        
+        // Export entries to JSON file
+        function exportToJson() {
+            if (journalEntries.length === 0) {
+                showStatus('No entries to export', true);
+                return;
+            }
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(journalEntries));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `trading-journal-backup-${formatDate(new Date()).replace(/[: ]/g, '-')}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            
+            showStatus('Backup saved successfully');
+        }
+        
+        // Import entries from JSON file
+        function importFromJson() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = event => {
+                    try {
+                        const importedEntries = JSON.parse(event.target.result);
+                        if (Array.isArray(importedEntries)) {
+                            journalEntries = importedEntries;
+                            renderEntries();
+                            showStatus(`Successfully imported ${importedEntries.length} entries`);
+                        } else {
+                            throw new Error('Invalid format');
+                        }
+                    } catch (error) {
+                        showStatus('Error importing file. Please make sure it\'s a valid journal export.', true);
+                        console.error(error);
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        // Clear all entries
+        function clearEntries() {
+            if (confirm('Are you sure you want to clear all journal entries? This cannot be undone.')) {
+                journalEntries = [];
+                renderEntries();
+                showStatus('All entries cleared');
+            }
+        }
+        
+        // Initialize TradingView chart
+        function initChart() {
+            const symbol = symbolInput.value || 'ES';
+            const timeframe = timeframeSelect.value || '15';
+            
+            const chartContainer = document.getElementById('tradingview-chart');
+            
+            // Clear previous chart if any
+            chartContainer.innerHTML = '';
+            
+            try {
+                new TradingView.widget({
+                    "width": "100%",
+                    "height": "100%",
+                    "symbol": `CME:${symbol}1!`,
+                    "interval": timeframe,
+                    "timezone": "exchange",
+                    "theme": "dark",
+                    "style": "1",
+                    "locale": "en",
+                    "toolbar_bg": "#1e222d",
+                    "enable_publishing": false,
+                    "hide_side_toolbar": false,
+                    "allow_symbol_change": true,
+                    "container_id": "tradingview-chart",
+                    "studies": [
+                        "MASimple@tv-basicstudies"
+                    ]
+                });
+            } catch (error) {
+                console.error("Error initializing chart:", error);
+                chartContainer.innerHTML = '<p style="text-align: center; padding: 20px;">Error loading chart. Please check your internet connection.</p>';
+            }
+        }
+        
+        // Event Listeners
+        confidenceButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                confidenceButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                selectedConfidence = parseInt(button.getAttribute('data-level'));
+            });
+        });
+        
+        saveButton.addEventListener('click', createEntry);
+        
+        // Allow entry creation with Ctrl+Enter
+        journalTextarea.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                createEntry();
+            }
+        });
+        
+        exportButton.addEventListener('click', exportToJson);
+        importButton.addEventListener('click', importFromJson);
+        clearButton.addEventListener('click', clearEntries);
+        
+        // Update chart when symbol or timeframe changes
+        symbolInput.addEventListener('change', initChart);
+        timeframeSelect.addEventListener('change', initChart);
+        
+        // Initialize the app
+        renderEntries();
+        
+        // Alternative visualization when TradingView fails
+        function createBasicChart() {
+            const chartContainer = document.getElementById('tradingview-chart');
+            chartContainer.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <p>TradingView chart could not be loaded. Using basic chart visualization instead.</p>
+                    <div id="basic-chart" style="height: 400px; margin-top: 20px; position: relative;">
+                        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column;">
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #888;">
+                                Chart placeholder - Your journal entries will be displayed here
+                            </div>
+                            <div id="chart-timeline" style="height: 50px; border-top: 1px solid #363c4e; display: flex; align-items: center; justify-content: space-between; padding: 0 20px;">
+                                <span>9:30</span>
+                                <span>12:00</span>
+                                <span>16:00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="margin-top: 15px; font-size: 14px;">
+                        Note: To view actual market data, please open this file while connected to the internet or host it on a web server.
+                    </p>
+                    <button id="retry-chart" style="margin-top: 15px; background-color: #3f51b5;">Retry Loading Chart</button>
+                </div>
+            `;
+            
+            // Add retry event listener
+            document.getElementById('retry-chart').addEventListener('click', () => {
+                loadTradingView();
+            });
+            
+            // Display journal entries on the basic chart if any exist
+            updateBasicChart();
+        }
+        
+        // Update basic chart with journal entries
+        function updateBasicChart() {
+            const basicChart = document.getElementById('basic-chart');
+            if (!basicChart) return;
+            
+            // Clear previous entries
+            const existingMarkers = basicChart.querySelectorAll('.entry-marker');
+            existingMarkers.forEach(marker => marker.remove());
+            
+            // Add entry markers
+            journalEntries.forEach((entry, index) => {
+                if (index > 10) return; // Only show the most recent 10 entries
+                
+                // Create random position for demonstration
+                const left = 10 + Math.random() * 80; // Random position between 10-90%
+                const top = 10 + Math.random() * 70;  // Random position between 10-80%
+                
+                const marker = document.createElement('div');
+                marker.className = 'entry-marker';
+                marker.style.position = 'absolute';
+                marker.style.left = `${left}%`;
+                marker.style.top = `${top}%`;
+                marker.style.width = '12px';
+                marker.style.height = '12px';
+                marker.style.borderRadius = '50%';
+                marker.style.backgroundColor = getConfidenceColor(entry.confidence);
+                marker.style.cursor = 'pointer';
+                marker.style.zIndex = '10';
+                marker.title = `${entry.timestamp}: ${entry.content.substring(0, 30)}...`;
+                
+                basicChart.appendChild(marker);
+                
+                // Show entry details on hover
+                marker.addEventListener('mouseover', () => {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'entry-tooltip';
+                    tooltip.style.position = 'absolute';
+                    tooltip.style.left = `${left + 2}%`;
+                    tooltip.style.top = `${top + 2}%`;
+                    tooltip.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                    tooltip.style.padding = '8px';
+                    tooltip.style.borderRadius = '4px';
+                    tooltip.style.maxWidth = '200px';
+                    tooltip.style.zIndex = '11';
+                    tooltip.style.pointerEvents = 'none';
+                    tooltip.innerHTML = `
+                        <strong>${entry.timestamp}</strong><br>
+                        <span style="color: ${getConfidenceColor(entry.confidence)}">Confidence: ${entry.confidence}</span><br>
+                        ${entry.content.substring(0, 100)}${entry.content.length > 100 ? '...' : ''}
+                    `;
+                    basicChart.appendChild(tooltip);
+                    
+                    marker.addEventListener('mouseout', () => {
+                        tooltip.remove();
+                    });
+                });
+            });
+        }
+        
+        // Get color based on confidence level
+        function getConfidenceColor(level) {
+            const colors = {
+                1: '#ef5350', // red
+                2: '#ff9800', // orange
+                3: '#4caf50', // green
+                4: '#2196f3', // blue
+                5: '#26a69a'  // teal
+            };
+            return colors[level] || '#888';
+        }
+        
+        // Load TradingView script and initialize chart
+        function loadTradingView() {
+            const chartContainer = document.getElementById('tradingview-chart');
+            chartContainer.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100%;"><p>Loading chart...</p></div>';
+            
+            // Use a reference that's more likely to work
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tradingview/1.0.0/tv.min.js';
+            script.async = true;
+            
+            // Set a reasonable timeout to detect loading failures
+            let tvLoaded = false;
+            const timeoutId = setTimeout(() => {
+                if (!tvLoaded) {
+                    console.log("TradingView widget loading timed out");
+                    createBasicChart();
+                }
+            }, 3000);
+            
+            script.onload = function() {
+                tvLoaded = true;
+                clearTimeout(timeoutId);
+                
+                try {
+                    // Double check if TradingView object exists
+                    if (typeof TradingView === 'undefined') {
+                        throw new Error("TradingView object not defined");
+                    }
+                    
+                    // Try loading a second script for the widget
+                    const widgetScript = document.createElement('script');
+                    widgetScript.type = 'text/javascript';
+                    widgetScript.src = 'https://s3.tradingview.com/tv.js';
+                    widgetScript.async = true;
+                    
+                    widgetScript.onload = function() {
+                        setTimeout(initChart, 500);
+                    };
+                    
+                    widgetScript.onerror = function() {
+                        createBasicChart();
+                    };
+                    
+                    document.head.appendChild(widgetScript);
+                } catch (error) {
+                    console.error("Error initializing TradingView:", error);
+                    createBasicChart();
+                }
+            };
+            
+            script.onerror = function() {
+                clearTimeout(timeoutId);
+                createBasicChart();
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', function() {
+            // Try loading the chart
+            loadTradingView();
+            
+            // Render entries
+            renderEntries();
+        });
+    </script>
+</body>
+</html>
