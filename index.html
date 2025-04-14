@@ -237,6 +237,25 @@
             background-color: rgba(0,0,0,0.2);
             display: none;
         }
+        
+        .entry-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        .entry-tooltip {
+            position: absolute;
+            background-color: rgba(0,0,0,0.8);
+            padding: 8px;
+            border-radius: 4px;
+            max-width: 200px;
+            z-index: 11;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -450,6 +469,7 @@
                         if (Array.isArray(importedEntries)) {
                             journalEntries = importedEntries;
                             renderEntries();
+                            updateBasicChart(); // Update chart markers if using basic chart
                             showStatus(`Successfully imported ${importedEntries.length} entries`);
                         } else {
                             throw new Error('Invalid format');
@@ -471,11 +491,12 @@
             if (confirm('Are you sure you want to clear all journal entries? This cannot be undone.')) {
                 journalEntries = [];
                 renderEntries();
+                updateBasicChart(); // Update chart markers if using basic chart
                 showStatus('All entries cleared');
             }
         }
         
-        // Initialize TradingView chart
+        // Initialize TradingView chart using official widget
         function initChart() {
             const symbol = symbolInput.value || 'ES';
             const timeframe = timeframeSelect.value || '15';
@@ -486,9 +507,15 @@
             chartContainer.innerHTML = '';
             
             try {
+                // Create container for the widget with a unique ID
+                const widgetContainer = document.createElement('div');
+                widgetContainer.id = 'tv-chart-container';
+                widgetContainer.style.height = '100%';
+                chartContainer.appendChild(widgetContainer);
+                
+                // Use the official TradingView widget script
                 new TradingView.widget({
-                    "width": "100%",
-                    "height": "100%",
+                    "autosize": true,
                     "symbol": `CME:${symbol}1!`,
                     "interval": timeframe,
                     "timezone": "exchange",
@@ -499,45 +526,19 @@
                     "enable_publishing": false,
                     "hide_side_toolbar": false,
                     "allow_symbol_change": true,
-                    "container_id": "tradingview-chart",
+                    "container_id": "tv-chart-container",
                     "studies": [
                         "MASimple@tv-basicstudies"
-                    ]
+                    ],
+                    "save_image": false,
+                    "withdateranges": true,
+                    "hide_volume": false
                 });
             } catch (error) {
                 console.error("Error initializing chart:", error);
-                chartContainer.innerHTML = '<p style="text-align: center; padding: 20px;">Error loading chart. Please check your internet connection.</p>';
+                createBasicChart();
             }
         }
-        
-        // Event Listeners
-        confidenceButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                confidenceButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
-                selectedConfidence = parseInt(button.getAttribute('data-level'));
-            });
-        });
-        
-        saveButton.addEventListener('click', createEntry);
-        
-        // Allow entry creation with Ctrl+Enter
-        journalTextarea.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                createEntry();
-            }
-        });
-        
-        exportButton.addEventListener('click', exportToJson);
-        importButton.addEventListener('click', importFromJson);
-        clearButton.addEventListener('click', clearEntries);
-        
-        // Update chart when symbol or timeframe changes
-        symbolInput.addEventListener('change', initChart);
-        timeframeSelect.addEventListener('change', initChart);
-        
-        // Initialize the app
-        renderEntries();
         
         // Alternative visualization when TradingView fails
         function createBasicChart() {
@@ -649,10 +650,10 @@
             const chartContainer = document.getElementById('tradingview-chart');
             chartContainer.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100%;"><p>Loading chart...</p></div>';
             
-            // Use a reference that's more likely to work
+            // Use the official TradingView widget URL
             const script = document.createElement('script');
             script.type = 'text/javascript';
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tradingview/1.0.0/tv.min.js';
+            script.src = 'https://s3.tradingview.com/tv.js';
             script.async = true;
             
             // Set a reasonable timeout to detect loading failures
@@ -662,33 +663,20 @@
                     console.log("TradingView widget loading timed out");
                     createBasicChart();
                 }
-            }, 3000);
+            }, 5000);
             
             script.onload = function() {
                 tvLoaded = true;
                 clearTimeout(timeoutId);
                 
                 try {
-                    // Double check if TradingView object exists
+                    // Check if TradingView object exists
                     if (typeof TradingView === 'undefined') {
                         throw new Error("TradingView object not defined");
                     }
                     
-                    // Try loading a second script for the widget
-                    const widgetScript = document.createElement('script');
-                    widgetScript.type = 'text/javascript';
-                    widgetScript.src = 'https://s3.tradingview.com/tv.js';
-                    widgetScript.async = true;
-                    
-                    widgetScript.onload = function() {
-                        setTimeout(initChart, 500);
-                    };
-                    
-                    widgetScript.onerror = function() {
-                        createBasicChart();
-                    };
-                    
-                    document.head.appendChild(widgetScript);
+                    // Initialize the chart
+                    setTimeout(initChart, 500);
                 } catch (error) {
                     console.error("Error initializing TradingView:", error);
                     createBasicChart();
@@ -702,6 +690,43 @@
             
             document.head.appendChild(script);
         }
+        
+        // Event Listeners
+        confidenceButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                confidenceButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                selectedConfidence = parseInt(button.getAttribute('data-level'));
+            });
+        });
+        
+        saveButton.addEventListener('click', createEntry);
+        
+        // Allow entry creation with Ctrl+Enter
+        journalTextarea.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                createEntry();
+            }
+        });
+        
+        exportButton.addEventListener('click', exportToJson);
+        importButton.addEventListener('click', importFromJson);
+        clearButton.addEventListener('click', clearEntries);
+        
+        // Update chart when symbol or timeframe changes
+        symbolInput.addEventListener('change', () => {
+            if (typeof TradingView !== 'undefined') {
+                initChart();
+            } else {
+                updateBasicChart();
+            }
+        });
+        
+        timeframeSelect.addEventListener('change', () => {
+            if (typeof TradingView !== 'undefined') {
+                initChart();
+            }
+        });
         
         // Initialize on load
         window.addEventListener('load', function() {
