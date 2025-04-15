@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Journal App</title>
-    <!-- Load Lightweight Charts library with correct version -->
-    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Load latest version of Lightweight Charts library -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
             --primary-color: #2962ff;
@@ -508,6 +508,14 @@
             try {
                 if (typeof LightweightCharts !== 'undefined') {
                     log(`Library loaded: ${typeof LightweightCharts}`);
+                    
+                    // Also log some of the available methods
+                    let methods = [];
+                    for (let key in LightweightCharts) {
+                        methods.push(key);
+                    }
+                    log(`Available methods: ${methods.join(', ')}`);
+                    
                     return true;
                 } else {
                     log('Library not yet loaded');
@@ -519,7 +527,7 @@
             }
         }
         
-        // Initialize Lightweight Charts
+        // Initialize Lightweight Charts using v4+ API
         function initChart() {
             log('Initializing chart...');
             
@@ -559,12 +567,12 @@
                 
                 log(`Creating chart in container: ${chartContainer.id}, size: ${chartContainer.clientWidth}x${chartContainer.clientHeight}`);
                 
-                // Create chart with explicit dimensions
+                // Create chart with explicit dimensions and updated API
                 chart = LightweightCharts.createChart(chartContainer, {
                     width: chartContainer.clientWidth || 800,
                     height: chartContainer.clientHeight || 400,
                     layout: {
-                        backgroundColor: '#1E222D',
+                        background: { color: '#1E222D' },
                         textColor: '#d1d4dc',
                     },
                     grid: {
@@ -580,12 +588,12 @@
                     timeScale: {
                         borderColor: '#485c7b',
                         timeVisible: true,
-                    },
+                    }
                 });
                 
-                log('Chart created, adding series');
+                log('Chart created, adding series with v4+ API');
                 
-                // Add candlestick series
+                // Add candlestick series using v4+ API
                 candleSeries = chart.addCandlestickSeries({
                     upColor: '#26a69a',
                     downColor: '#ef5350',
@@ -604,10 +612,17 @@
                 console.error('Error initializing chart:', error);
                 showStatus('Error initializing chart: ' + error.message, true);
                 
-                // Show error in chart container
+                // Show error in chart container with API version info
                 chartContainer.innerHTML = `
                     <div class="loading-message">
                         Error initializing chart: ${error.message}<br><br>
+                        <div>API version information:</div>
+                        <div style="text-align: left; margin: 10px 0; font-size: 0.8em;">
+                            ${typeof LightweightCharts !== 'undefined' ? 
+                                `LightweightCharts is defined<br>
+                                 Methods: ${Object.keys(LightweightCharts).join(', ')}` 
+                                : 'LightweightCharts is undefined'}
+                        </div>
                         <button id="retry-chart">Retry</button>
                     </div>
                 `;
@@ -854,289 +869,3 @@
                 log('Markers are hidden, not updating');
                 return;
             }
-            
-            log(`Updating markers for ${journalEntries.length} entries`);
-            
-            let markersAdded = 0;
-            
-            // Add markers for each entry
-            journalEntries.forEach(entry => {
-                const entrySymbol = entry.symbol || 'SPY';
-                const currentSymbol = symbolInput.value || 'SPY';
-                
-                // Skip if entry is for a different symbol
-                if (entrySymbol.toUpperCase() !== currentSymbol.toUpperCase()) {
-                    return;
-                }
-                
-                // Convert timestamp to chart time
-                const chartTime = Math.floor(entry.time / 1000);
-                
-                try {
-                    // Try to get the coordinate from the chart
-                    const coordinate = chart.timeScale().timeToCoordinate(chartTime);
-                    
-                    // Skip if time is outside the visible range
-                    if (coordinate === null) {
-                        log(`Marker for entry ${entry.id} outside visible range`);
-                        return;
-                    }
-                    
-                    log(`Adding marker at ${coordinate}px for entry ${entry.id}`);
-                    
-                    // Create marker
-                    const marker = document.createElement('div');
-                    marker.className = 'marker';
-                    marker.style.backgroundColor = getConfidenceColor(entry.confidence);
-                    marker.dataset.id = entry.id;
-                    marker.textContent = entry.confidence;
-                    
-                    // Position marker
-                    marker.style.left = `${coordinate}px`;
-                    marker.style.bottom = '30px';
-                    
-                    // Create tooltip
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'marker-tooltip';
-                    tooltip.innerHTML = `
-                        <strong>${entry.timestamp}</strong><br>
-                        <span style="color: ${getConfidenceColor(entry.confidence)}">Confidence: ${entry.confidence}/5</span>
-                        <p>${entry.content}</p>
-                    `;
-                    tooltip.dataset.id = entry.id;
-                    
-                    // Add event listeners
-                    marker.addEventListener('mouseover', () => {
-                        tooltip.style.display = 'block';
-                        tooltip.style.left = `${coordinate > chartContainer.clientWidth / 2 ? coordinate - 310 : coordinate + 20}px`;
-                        tooltip.style.bottom = '50px';
-                    });
-                    
-                    marker.addEventListener('mouseout', () => {
-                        tooltip.style.display = 'none';
-                    });
-                    
-                    marker.addEventListener('click', () => {
-                        log(`Marker clicked: ${entry.id}`);
-                        // Highlight corresponding entry
-                        document.querySelectorAll('.journal-entry').forEach(el => {
-                            el.classList.remove('highlighted');
-                        });
-                        
-                        const entryElement = document.querySelector(`.journal-entry[data-id="${entry.id}"]`);
-                        if (entryElement) {
-                            entryElement.classList.add('highlighted');
-                            entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    });
-                    
-                    // Add marker and tooltip to chart container
-                    chartContainer.appendChild(marker);
-                    chartContainer.appendChild(tooltip);
-                    
-                    markersAdded++;
-                } catch (error) {
-                    log(`ERROR creating marker: ${error.message}`);
-                }
-            });
-            
-            log(`Added ${markersAdded} markers to chart`);
-        }
-        
-        // Toggle markers visibility
-        function toggleMarkers() {
-            markersVisible = !markersVisible;
-            
-            const toggleBtn = document.getElementById('toggle-markers');
-            if (markersVisible) {
-                updateChartMarkers();
-                toggleBtn.textContent = "Hide Markers";
-                log('Markers shown');
-            } else {
-                document.querySelectorAll('.marker, .marker-tooltip').forEach(el => el.remove());
-                toggleBtn.textContent = "Show Markers";
-                log('Markers hidden');
-            }
-        }
-        
-        // Export entries to JSON file
-        function exportToJson() {
-            if (journalEntries.length === 0) {
-                showStatus('No entries to export', true);
-                return;
-            }
-            
-            // Sort entries by timestamp before exporting
-            // This ensures a chronological order regardless of entry method
-            const sortedEntries = [...journalEntries].sort((a, b) => {
-                return a.time - b.time; // Ascending order (oldest first)
-            });
-            
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sortedEntries));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", `trading-journal-backup-${formatDate(new Date()).replace(/[: ]/g, '-')}.json`);
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-            
-            showStatus('Backup saved successfully');
-        }
-        
-        // Import entries from JSON file
-        function importFromJson() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            
-            input.onchange = e => {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                
-                reader.onload = event => {
-                    try {
-                        const importedEntries = JSON.parse(event.target.result);
-                        if (Array.isArray(importedEntries)) {
-                            journalEntries = importedEntries;
-                            renderEntries();
-                            updateChartMarkers();
-                            showStatus(`Successfully imported ${importedEntries.length} entries`);
-                            log(`Imported ${importedEntries.length} entries`);
-                        } else {
-                            throw new Error('Invalid format');
-                        }
-                    } catch (error) {
-                        showStatus('Error importing file. Please make sure it\'s a valid journal export.', true);
-                        log(`ERROR importing: ${error.message}`);
-                    }
-                };
-                
-                reader.readAsText(file);
-            };
-            
-            input.click();
-        }
-        
-        // Clear all entries
-        function clearEntries() {
-            if (confirm('Are you sure you want to clear all journal entries? This cannot be undone.')) {
-                journalEntries = [];
-                renderEntries();
-                updateChartMarkers();
-                showStatus('All entries cleared');
-                log('All entries cleared');
-            }
-        }
-        
-        // Event Listeners
-        confidenceButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                confidenceButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
-                selectedConfidence = parseInt(button.getAttribute('data-level'));
-            });
-        });
-        
-        saveButton.addEventListener('click', createEntry);
-        
-        // Allow entry creation with Ctrl+Enter
-        journalTextarea.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                createEntry();
-            }
-        });
-        
-        exportButton.addEventListener('click', exportToJson);
-        importButton.addEventListener('click', importFromJson);
-        clearButton.addEventListener('click', clearEntries);
-        
-        // Update chart when symbol or timeframe changes
-        symbolInput.addEventListener('change', () => {
-            log(`Symbol changed to: ${symbolInput.value}`);
-            if (lightweightChartsLoaded) {
-                initChart();
-            }
-        });
-        
-        timeframeSelect.addEventListener('change', () => {
-            log(`Timeframe changed to: ${timeframeSelect.value}`);
-            if (lightweightChartsLoaded) {
-                initChart();
-            }
-        });
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (lightweightChartsLoaded && chart) {
-                log(`Window resized, updating chart: ${chartContainer.clientWidth}x${chartContainer.clientHeight}`);
-                chart.applyOptions({
-                    width: chartContainer.clientWidth,
-                    height: chartContainer.clientHeight
-                });
-                
-                // Update marker positions after resize
-                setTimeout(updateChartMarkers, 100);
-            }
-        });
-        
-        // Main initialization
-        function initializeApp() {
-            log('Initializing app...');
-            
-            // Check if we can access the LightweightCharts library
-            if (typeof LightweightCharts !== 'undefined') {
-                log('LightweightCharts library detected on page load');
-                lightweightChartsLoaded = true;
-                
-                // Initialize chart
-                initChart();
-                
-            } else {
-                log('LightweightCharts library not found on load, adding script tag');
-                
-                // Try to load the library
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js';
-                script.onload = () => {
-                    log('LightweightCharts library loaded successfully');
-                    lightweightChartsLoaded = true;
-                    initChart();
-                };
-                script.onerror = (e) => {
-                    log(`ERROR loading library: ${e.type}`);
-                    showStatus('Failed to load chart library. Please check your internet connection.', true);
-                    
-                    // Show error in chart container
-                    chartContainer.innerHTML = `
-                        <div class="loading-message">
-                            Failed to load chart library.<br>
-                            Please check your internet connection.<br><br>
-                            <button id="retry-load">Retry</button>
-                        </div>
-                    `;
-                    
-                    document.getElementById('retry-load').addEventListener('click', () => {
-                        log('Retrying library load');
-                        document.head.appendChild(script);
-                    });
-                };
-                
-                document.head.appendChild(script);
-            }
-            
-            // Initialize entries display
-            renderEntries();
-        }
-        
-        // Start the app when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApp);
-        } else {
-            initializeApp();
-        }
-        
-        // Log initial status
-        log(`App initialized. Library status: ${typeof LightweightCharts !== 'undefined' ? 'Available' : 'Not loaded'}`);
-    </script>
-</body>
-</html>
